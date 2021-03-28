@@ -1,0 +1,13 @@
+[Unit]
+Description=cosmiccontroller for ecasound
+
+[Service]
+ExecStartPre=/bin/bash -c '(while ! nc -z -v -w1 localhost 2868 > /dev/null; do echo "Waiting for ecasound server at port 2868..."; sleep 2; done); sleep 2'
+ExecStart=/usr/bin/cosmeca
+WorkingDirectory=/home/pi/
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target
+Also=ecasound.service jackd.service zita-n2j.service

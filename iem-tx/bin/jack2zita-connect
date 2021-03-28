@@ -1,0 +1,11 @@
+#!/bin/bash
+#
+# Connects jackd capture with zita-j2n ports
+
+# wait for zita-j2n to settle after starting
+sleep 2
+
+jack_connect system:capture_1 zita-j2n:in_1
+jack_connect system:capture_2 zita-j2n:in_2
+
+exit 0

@@ -1,0 +1,13 @@
+# ecasound chainsetup file
+
+# general
+-B:rtlowlatency -n:"monomix" -X -z:noxruns -z:mixmode,sum
+
+# audio inputs
+-a:default -f:f32_le,2,96000 -i:jack,zita-n2j,
+
+# audio outputs
+-a:default -f:f32_le,2,96000 -o:jack,system,
+
+# chain operators and controllers
+-a:default -chmix:1 -chcopy:1,2 -eli:2153,4.00,160.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,10.00

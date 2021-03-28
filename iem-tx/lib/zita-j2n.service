@@ -1,0 +1,18 @@
+[Unit]
+Description=zita-j2n over wlan0
+Requires=hostapd.service jackd.service
+After=jackd.service
+
+[Service]
+ExecStartPre=/usr/bin/jack_wait -w
+ExecStart=/usr/bin/zita-j2n --chan 2 --16bit --mtu 1500 --hops 1 224.0.0.3 30042 wlan0
+ExecStartPost=/bin/bash /usr/bin/jack2zita-connect
+WorkingDirectory=/home/pi/
+Restart=always
+User=pi
+LimitRTPRIO=infinity
+LimitMEMLOCK=infinity
+
+[Install]
+WantedBy=multi-user.target
+Also=hostapd.service jackd.service

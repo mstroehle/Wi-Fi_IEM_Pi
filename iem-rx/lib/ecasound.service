@@ -1,0 +1,17 @@
+[Unit]
+Description=ecasound server
+Requires=zita-n2j.service
+After=zita-n2j.service
+
+[Service]
+ExecStartPre=/bin/bash -c '(while ! netstat -a | grep 30042 > /dev/null; do echo "Waiting for zita-n2j connection on port 30042..."; sleep 2; done); sleep 2'
+ExecStart=/bin/bash -a -c '/usr/bin/ecasound --server -s:/usr/share/wi-fi_iem/mono.ecs -s:/usr/share/wi-fi_iem/monomix.ecs -s:/usr/share/wi-fi_iem/stereo.ecs'
+WorkingDirectory=/home/pi/
+Restart=always
+User=pi
+LimitRTPRIO=infinity
+LimitMEMLOCK=infinity
+
+[Install]
+WantedBy=multi-user.target
+Also=jackd.service zita-n2j.service

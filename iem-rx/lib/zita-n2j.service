@@ -1,0 +1,18 @@
+[Unit]
+Description=zita-n2j over wlan0
+Requires=jackd.service
+After=jackd.service
+Before=ecasound.service
+
+[Service]
+ExecStartPre=/usr/bin/jack_wait -w && /bin/bash -c '(while ! $(if [ $(cat /sys/class/net/wlan0/carrier) -eq 1 ]; then exit 0; else exit 1; fi) > /dev/null; do echo "Waiting for carrier on wlan0..."; sleep 2; done); sleep 2'
+ExecStart=/usr/bin/zita-n2j --buff 3 --chan 1,2 224.0.0.3 30042 wlan0
+WorkingDirectory=/home/pi/
+Restart=always
+User=pi
+LimitRTPRIO=infinity
+LimitMEMLOCK=infinity
+
+[Install]
+WantedBy=multi-user.target
+Also=jackd.service

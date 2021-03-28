@@ -1,0 +1,16 @@
+[Unit]
+Description=JACK audio server
+Requires=alsa-state.service
+Before=zita-j2n.service
+
+[Service]
+ExecStartPre=/bin/bash /usr/bin/cpu-performance
+ExecStart=/usr/bin/jackd -R -P84 -t2000 -p16 -dalsa -dhw:0 -C -n2 -p128 -r96000 -i2 -o0
+WorkingDirectory=/home/pi/
+Restart=always
+User=pi
+LimitRTPRIO=infinity
+LimitMEMLOCK=infinity
+
+[Install]
+WantedBy=multi-user.target

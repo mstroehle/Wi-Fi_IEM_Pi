@@ -1,0 +1,364 @@
+#!/usr/bin/python
+#
+# Control program for ecasound server chainsetups using IQaudIO
+# CosmicController board v1 hardware and ecasound IEAM commands
+#
+# This program is based on ecamonitor, Copyright (C) 2009 Kai Vehmanen
+# and cosmiccontroller.py, Copyright (C) 2017 Gordon Exp, IQaudIO Limited
+# 
+# https://bobrathbone.com/raspberrypi/cosmic_controller.html
+# https://nosignal.fi/ecasound/Documentation/ecatools_manpage.html
+#
+# ------------------------------------------------------------------------
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+# ------------------------------------------------------------------------
+
+# imports for ecasound server control
+import re
+import socket
+import string
+import sys
+import time
+# imports for cosmiccontroller
+from time import sleep
+from subprocess import call
+import datetime
+import RPi.GPIO as GPIO
+
+# local ecasound server configuration
+ecasound_host = "localhost"
+ecasound_port = 2868
+
+# pins in use
+encoder_a = 23
+encoder_b = 24
+pushbutton = 27   # set to zero if not connected
+
+newbutton1 = 4
+newbutton2 = 5
+newbutton3 = 6
+
+newled1 = 14
+newled2 = 15
+newled3 = 16
+
+# control pin - defined in hardware so do not change
+mutepin = 22
+
+# control name in amixer. IQaudIO Master volume control
+control='Digital'
+
+# volume change per encoder detent step in percent
+# this can be non-integer, but it is then not completely regular
+volumestepsize = 3      # percent of full span
+
+# guard times for switch functions (seconds)
+holdtimemute = 2        # amp mutes after switch held this long
+holdtimelock = 3        # Controls lock after button 1 held this long
+holdtimeoff = 4         # system powers off after this long (total)
+
+# debounce time (on switch, not encoder)
+switchdebounce = 30.    # milliseconds
+
+# loop timing
+# volume will only increment this many times per second
+# regardless of how many edge transitions occur within interval
+volumeloophz = 3
+# button press timing loop
+buttonloopwait = 0.02  # seconds, recommend 0.02
+
+# ------------------------------------------------------------------------
+
+# initialise hardware: all get onboard pullup (approx 50k)
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(encoder_a, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(encoder_b, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(pushbutton, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(newbutton1, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(newbutton2, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(newbutton3, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+GPIO.setup(mutepin, GPIO.OUT)
+GPIO.setup(newled1, GPIO.OUT)
+GPIO.setup(newled2, GPIO.OUT)
+GPIO.setup(newled3, GPIO.OUT)
+
+# Turn off all three LEDs
+GPIO.output(newled1,0)
+GPIO.output(newled2,0)
+GPIO.output(newled3,0)
+
+# create events callback functions
+encoderpos = 0
+lastencoderpos = 0
+encodercount = 0
+lastencodercount = 0
+
+# Initialise controls lock state
+controlslock = False
+
+# ------------------------------------------------------------------------
+
+def connect_to_server(host, port):
+    """Connects to the ecasound server.
+
+    @return Socket object for the connection.
+    """
+
+    while 1:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((host, port))
+            s.setblocking(1)
+            return(s)
+
+        except Exception, e:
+            if e[0] == 111: # 111 = connection refused
+                time.sleep(1)
+                pass
+            else:
+                raise
+
+
+def issue_eiam_command(s, cmd):
+    """Sends a command to ecasound and waits for an response.
+
+    @param s socket for an active connection
+    @param cmd EIAM command to send
+
+    @return tuple of return value type and value
+    """
+
+    tm = ''
+    counter = 0
+    s.send(cmd + '\r\n')
+    while counter < 16:
+        count = counter + 1
+        newdata = s.recv(4096)
+        if len(newdata) == 0:
+            return ('e','')
+
+        tm = tm + newdata
+
+        # test if received EIAM command is valid
+        try:
+            m = expand_eiam_response(tm)
+            return parse_eiam_response(m, tm)
+
+        except Exception, e:
+            pass
+
+    return ('e','')
+
+
+def expand_eiam_response(str):
+    """Checks wheter 'str' is a valid EIAM response.
+
+    @return Regex match object.
+    """
+
+    m = re.match('256 ([0-9]{1,5}) (.+)\r\n(.*)\r\n\r\n.*', str, re.MULTILINE | re.S)
+    return m
+
+
+def parse_eiam_response(m, str):
+    """Parses a valid EIAM response.
+
+    @param m Valid regex match object.
+    @param str The whole EIAM response.
+
+    @return tuple of return value type and value
+    """
+
+    if not m:
+        m = re.match('256 ([0-9]{1,5}) (.+)\r\n(.*)', str, re.MULTILINE | re.S)
+        if not m:
+            raise Exception, 'Regexp failed!'
+
+    if m and len(m.groups()) == 0:
+        print "(ecasound) Matching groups failed: ", m.groups()
+
+    if m and len(m.groups()) == 3:
+        #print 'received=', len(m.group(3)), ', expected=', m.group(1)
+        if int(m.group(1)) != len(m.group(3)):
+            print "(ecasound) Response length error."
+
+    if m:
+        return (m.group(2), m.group(3))
+
+    return ('e','')
+
+
+def eiam_command_change_chainsetup(cs):
+    """Sends commands to the ecasound server to change the chainsetup
+
+    @param cs name of chainsetup to select
+    """
+
+    s = None
+    host = ecasound_host
+    port = ecasound_port
+
+    if len(sys.argv) > 1:
+        destination = sys.argv[1]
+        address = string.split(destination, ':')
+        host = address[0]
+        if len(address) > 1:
+            port = int(address[1])
+
+    try:
+        if s == None:
+            s = connect_to_server(host, port)
+        if (cs == 1):
+            issue_eiam_command(s, 'cs-select stereo')
+        else:
+            if (cs == 2):
+                issue_eiam_command(s, 'cs-select monomix')
+            if (cs == 3):
+                issue_eiam_command(s, 'cs-select mono')
+
+        issue_eiam_command(s, 'cs-disconnect')
+        issue_eiam_command(s, 'cs-connect')
+        issue_eiam_command(s, 'start')
+
+    except socket.error, e:
+        if e[0] == 32 or e[0] == 104 or e[0] == 111:
+            s = None
+            pass
+        else:
+            print "Exception!" , e
+            raise
+
+    finally:
+        if s != None:
+            s.close()
+
+
+def encoder_callback(channel):
+    if (controlslock == False):
+        global lastencoderpos
+        global encodercount
+
+        encoderpos=((GPIO.input(encoder_a)&1)<<1)|(GPIO.input(encoder_b)&1)
+        c = (lastencoderpos<<2)|encoderpos
+        if (c==0b1101 or c==0b0100 or c==0b0010 or c==0b1011):
+            encodercount = encodercount + 1
+        else:
+            if (c==0b1110 or c==0b0111 or c==0b0001 or c==0b1000):
+                encodercount = encodercount -1
+            else:
+                pass
+            
+        lastencoderpos=encoderpos
+
+ 
+def pushbutton_callback(channel):
+    if (controlslock == False):
+        presstime = datetime.datetime.utcnow()
+        while (GPIO.input(channel)==0):
+            pressduration=(datetime.datetime.utcnow()-presstime).total_seconds()
+            if (pressduration>float(holdtimemute)):
+                GPIO.output(mutepin,0)
+            sleep (buttonloopwait)
+        pressduration=(datetime.datetime.utcnow()-presstime).total_seconds()
+
+        if (pressduration>(float(holdtimeoff))):
+            call(["sudo", "halt"])
+        else:    
+            if ( (pressduration>(float(switchdebounce)/1000.0)) and (pressduration<float(holdtimemute)) ):
+                # Toggle mute state
+                if (GPIO.input(mutepin)==0):
+                    GPIO.output(mutepin,1)
+                else:
+                    GPIO.output(mutepin,0)
+
+                call(["/usr/bin/amixer", "-q", "sset", control, "toggle"])
+
+
+def newbutton1_callback(channel):
+    presstime = datetime.datetime.utcnow()
+    while (GPIO.input(channel)==0):
+        pressduration=(datetime.datetime.utcnow()-presstime).total_seconds()
+        sleep (buttonloopwait)
+
+    pressduration=(datetime.datetime.utcnow()-presstime).total_seconds()
+    if (pressduration>(float(holdtimelock))):
+        global controlslock
+        if (controlslock == True):
+            controlslock = False
+        else:
+            controlslock = True
+    else:
+        if ( (pressduration>(float(switchdebounce)/1000.0)) and (pressduration<float(holdtimemute)) and controlslock == False):
+            GPIO.output(newled1,1)
+            GPIO.output(newled2,0)
+            GPIO.output(newled3,0)
+
+            eiam_command_change_chainsetup(1)
+
+
+def newbutton2_callback(channel):
+    if (controlslock == False):
+        presstime = datetime.datetime.utcnow()
+        while (GPIO.input(channel)==0):
+            pressduration=(datetime.datetime.utcnow()-presstime).total_seconds()
+            sleep (buttonloopwait)
+
+        pressduration=(datetime.datetime.utcnow()-presstime).total_seconds()
+
+        if ( (pressduration>(float(switchdebounce)/1000.0)) and (pressduration<float(holdtimemute)) ):
+            GPIO.output(newled2,1)
+            GPIO.output(newled1,0)
+            GPIO.output(newled3,0)
+
+            eiam_command_change_chainsetup(2) 
+
+
+def newbutton3_callback(channel):
+    if (controlslock == False):
+        presstime = datetime.datetime.utcnow()
+        while (GPIO.input(channel)==0):
+            pressduration=(datetime.datetime.utcnow()-presstime).total_seconds()
+            sleep (buttonloopwait)
+
+        pressduration=(datetime.datetime.utcnow()-presstime).total_seconds()
+
+        if ( (pressduration>(float(switchdebounce)/1000.0)) and (pressduration<float(holdtimemute)) ):
+            GPIO.output(newled3,1)
+            GPIO.output(newled1,0)
+            GPIO.output(newled2,0)
+
+            eiam_command_change_chainsetup(3)
+
+# ------------------------------------------------------------------------
+
+# register callback functions
+GPIO.add_event_detect(encoder_a, GPIO.BOTH, callback=encoder_callback)
+GPIO.add_event_detect(encoder_b, GPIO.BOTH, callback=encoder_callback)
+
+GPIO.add_event_detect(pushbutton, GPIO.FALLING, callback=pushbutton_callback, bouncetime=int(switchdebounce))
+GPIO.add_event_detect(newbutton1, GPIO.FALLING, callback=newbutton1_callback, bouncetime=int(switchdebounce))
+GPIO.add_event_detect(newbutton2, GPIO.FALLING, callback=newbutton2_callback, bouncetime=int(switchdebounce))
+GPIO.add_event_detect(newbutton3, GPIO.FALLING, callback=newbutton3_callback, bouncetime=int(switchdebounce))
+
+# update volume control according to encoder position changes
+while True:
+    if (encodercount <> lastencodercount):
+        # decide on step size
+        if (encodercount > lastencodercount):
+            v = str(volumestepsize)+'%+'
+        else:
+            v = str(volumestepsize)+'%-'
+
+        call(["/usr/bin/amixer", "-q", "sset", control, v])                    
+        lastencodercount=encodercount
+
+    sleep (1.0/volumeloophz)
