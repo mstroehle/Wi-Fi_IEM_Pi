@@ -8,11 +8,17 @@ Concerning to the new hardware and software used in this project I'd like to tha
 ## Requirements
 Hardware components:
 - 2x [Raspberry Pi 3 B+](https://www.raspberrypi.org/products/raspberry-pi-3-model-b-plus/) including SD card and power supply or a powerbank like the [Verico Power Guard 5000 mAh](https://www.vericoglobal.com/en/power-guard-5000mah/) for mobile receiver, respectively. Refer to [Raspberry Pi Documentation](https://www.raspberrypi.org/documentation/setup/) for details.
-- [HifiBerry DAC+](https://www.hifiberry.com/shop/boards/hifiberry-dac-adc) HAT audio interface
+- [HifiBerry DAC+ ADC](https://www.hifiberry.com/shop/boards/hifiberry-dac-adc) HAT audio interface
 - [Pi-DAC+](https://www.raspberrypi.org/products/iqaudio-dac-plus/) HAT audio interface
 - [Cosmic Controller](https://github.com/bobrathbone/CosmicController) HAT controller interface
+- [HifiBerry Case]() or likewise for transmitter
+- Customized 3D printed enclosure: Use [IQAudio PI-DAC+ Enclosure](https://www.thingiverse.com/thing:2595204) by TechRoss to get started and build your own in [FreeCAD](https://www.freecadweb.org/) by importing STL files and extending the model.
 
 You need terminal access on both Raspberry Pis to run scripts. Either physically or remotely using [SSH](https://www.raspberrypi.org/documentation/remote-access/ssh/README.md). Furthermore an internet connection is needed for installing packages.
+
+## Hardware setup
+Attach HifiBerry HAT and Pi-DAC+ to each Raspberry Pi respectively. You might need to solder components of the Cosmic Controller before attaching it onto the Pi-DAC+. Refer to [documentation](https://bobrathbone.com/raspberrypi/documents/IQaudIO%20Cosmic%20Controller.pdf) for this step. Lastly install transmitter parts into HifiBerry case and receiver parts into custom enclosure. Your setup should be similar to the picture.
+![example_setup.jpg](example_setup.jpg)
 
 ## Installation
 1. Flash a [nightly build of RealtimePi](http://unofficialpi.org/Distros/RealtimePi/nightly/) on both SD cards (refer to Raspberry Pi Documentation for how to flash SD cards with images) and power on Raspberry Pis afterwards.
