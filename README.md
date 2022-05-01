@@ -37,7 +37,7 @@ Attach HifiBerry HAT and Pi-DAC+ to each Raspberry Pi respectively. You might ne
 10. After rebooting the receiver starts playing the stream
 
 ## Receiver controls
-You can use Cosmic Controller rotary encoder to control receiver volume and its push button to mute the stream. To prevent a corrupt filesystem press the push button for at least 4 seconds to shutdon the receiver before disconnecting power. There are 3 mixing modes (mono, monomix, stereo) which can be selected by the buttons of the Cosmic Controller. At startup stereo mode is used. When pressing the button 1 (most distant from rotary encoder) for 4 seconds controls will be looked and can be unlocked by pressing it again for 4 seconds.
+You can use Cosmic Controller rotary encoder to control receiver volume and its push button to mute the stream. To prevent a corrupt filesystem press the push button for at least 4 seconds to shutdon the receiver before disconnecting power. There are 3 mixing modes (mono, monomix, stereo) which can be selected by the buttons of the Cosmic Controller. At startup stereo mode is used. When pressing the button 1 (most distant from rotary encoder) for 4 seconds controls will be locked and can be unlocked by pressing it again for 4 seconds.
 
 ## Tipps and Tricks
 If connection is dropping out, set a higher buffer for zita-n2j by changing _--buff 3_ to a higher value in /lib/systemd/system/zita-n2j.service unit in line 9 on receiver.
