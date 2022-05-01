@@ -11,7 +11,7 @@ Hardware components:
 - [HifiBerry DAC+ ADC](https://www.hifiberry.com/shop/boards/hifiberry-dac-adc) HAT audio interface
 - [Pi-DAC+](https://www.raspberrypi.org/products/iqaudio-dac-plus/) HAT audio interface
 - [Cosmic Controller](https://github.com/bobrathbone/CosmicController) HAT controller interface
-- [HifiBerry Case]() or likewise for transmitter
+- [HifiBerry Universal Case](https://www.hifiberry.com/shop/cases/universal-case-black/) or likewise for transmitter
 - Customized 3D printed enclosure: Use [IQAudio PI-DAC+ Enclosure](https://www.thingiverse.com/thing:2595204) by TechRoss to get started and build your own in [FreeCAD](https://www.freecadweb.org/) by importing STL files and extending the model.
 
 You need terminal access on both Raspberry Pis to run scripts. Either physically or remotely using [SSH](https://www.raspberrypi.org/documentation/remote-access/ssh/README.md). Furthermore an internet connection is needed for installing packages.
@@ -22,26 +22,25 @@ Attach HifiBerry HAT and Pi-DAC+ to each Raspberry Pi respectively. You might ne
 
 ## Installation
 1. Flash a [nightly build of RealtimePi](http://unofficialpi.org/Distros/RealtimePi/nightly/) on both SD cards (refer to Raspberry Pi Documentation for how to flash SD cards with images) and power on Raspberry Pis afterwards.
-2. Log in
+2. Log in with SSH
 3. Clone this git repository: `git clone https://github.com/thisven/Wi-Fi_IEM_Pi`
 4. Change directory to Wi-Fi_IEM_Pi: `cd Wi-Fi_IEM_Pi`
 
 ### Setup the transmitter: iem-tx
 5. Use Raspberry Pi with HifiBerry DAC+ on power supply as transmitter
-6. Changing directory to iem-tx and run install-tx.sh script: `./install-tx.sh`
+6. Change directory to iem-tx and run install-tx.sh script: `cd iem-tx && ./install-tx.sh`
 7. At the end the Raspberry Pi will reboot and the transmitter begins streaming
 
 ### Setup the receiver: iem-rx
 8. Use Raspberry Pi with Pi-DAC+ and Cosmic Controller on powerbank as receiver
-9. Changing directory to iem-rx and run install-rx.sh script: `./install-rx.sh`
+9. Change directory to iem-rx and run install-rx.sh script: `cd iem-rx && ./install-rx.sh`
 10. After rebooting the receiver starts playing the stream
 
 ## Receiver controls
-You can use Cosmic Controller rotary encoder to control receiver volume and its push button to mute the stream. To prevent a corrupt filesystem press the push button for at least 4 seconds to shutdon the receiver before disconnecting power. There are 3 mixing modes (mono, monomix, stereo) which can be selected by the buttons of the Cosmic Controller. At startup stereo mode is used. When pressing the button 1 (most distant from rotary encoder) for 4 seconds controls will be locked and can be unlocked by pressing it again for 4 seconds.
+You can use Cosmic Controller rotary encoder to control receiver volume and its push button to mute the stream. To prevent a corrupt filesystem press the push button for at least 4 seconds to shutdown the receiver before disconnecting power. There are 3 mixing modes (mono, monomix, stereo) which can be selected by pressing the buttons of the Cosmic Controller. At startup _stereo mode_ is used. When pressing the button 1 (most distant from rotary encoder) for 4 seconds controls will be locked and can be unlocked by pressing it again for 4 seconds.
 
 ## Tipps and Tricks
-If connection is dropping out, set a higher buffer for zita-n2j by changing _--buff 3_ to a higher value in /lib/systemd/system/zita-n2j.service unit in line 9 on receiver.
+If connection is dropping out, set a higher buffer for `zita-n2j` by changing _--buff 3_ to a higher value in `/lib/systemd/system/zita-n2j.service` unit in line 9 on receiver.
 
 ## Contribution and Donation
 Feel free to spread the work, fork or contribute by other means to this project and its resources. Always remember to make a donation to developers and maintainers.
-
